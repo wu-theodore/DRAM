@@ -12,6 +12,7 @@ class Config(object):
         # Learning parameters
         self.lr = 0.001
         self.num_epochs = 2
+        self.isTraining = True
     
         # Dataset details:
         self.batch_size = 100

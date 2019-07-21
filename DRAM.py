@@ -15,6 +15,8 @@ class DRAM(object):
         self.gstep = tf.Variable(0, dtype=tf.int32, 
                                  trainable=False, name='global_step')
         self.num_epochs = self.config.num_epochs
+        self.isTraining = self.config.isTraining
+        
         self.dataset = datasets.MNIST(self.config.batch_size)
 
     def get_data(self):
@@ -129,7 +131,7 @@ class DRAM(object):
             tf.summary.scalar('accuracy', self.accuracy)
             self.summary_op = tf.summary.merge_all()
 
-    def train(self, num_epochs):
+    def train(self, num_epochs, isTraining):
         """
         1) Make checkpoint folder (using config.checkpoint_path) and saver.
         2) Alternate between training and testing for each epoch.
@@ -196,7 +198,7 @@ class DRAM(object):
 if __name__ == "__main__":
     test = DRAM()
     test.build()
-    test.train(test.num_epochs)
+    test.train(test.num_epochs, test.isTraining)
 
             
 
