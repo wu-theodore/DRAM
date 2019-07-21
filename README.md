@@ -9,6 +9,8 @@ utils.py, MNIST data extraction and training function style from github reposito
 
 CS 20: "TensorFlow for Deep Learning Research" 
 
+## Files and Usage
+
 ### utils.py
 Currently contains basic functionality to safely create local directories, download files from online sources,
 and convert tensor data to tf.data.Dataset objects for compatibility with DRAM model.
