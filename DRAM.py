@@ -16,7 +16,7 @@ class DRAM(object):
                                  trainable=False, name='global_step')
         self.num_epochs = self.config.num_epochs
         self.isTraining = self.config.isTraining
-        
+
         self.dataset = datasets.MNIST(self.config.batch_size)
 
     def get_data(self):
@@ -150,8 +150,11 @@ class DRAM(object):
 
             step = self.gstep.eval()
 
-            for epoch in range(num_epochs):
-                step = self.train_one_epoch(sess, saver, self.train_init, writer, step, epoch)
+            if isTraining:
+                for epoch in range(num_epochs):
+                    step = self.train_one_epoch(sess, saver, self.train_init, writer, step, epoch)
+                    self.eval_once(sess, self.test_init, writer, step, epoch)
+            else:
                 self.eval_once(sess, self.test_init, writer, step, epoch)
 
         writer.close()
