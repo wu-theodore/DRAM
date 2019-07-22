@@ -71,15 +71,15 @@ class GlimpseNet(object):
             with tf.variable_scope("feature_network", reuse=tf.AUTO_REUSE):
                 with tf.variable_scope("convolutions", reuse=tf.AUTO_REUSE):
                     conv1 = self.layers.conv_layer(input_glimpse, filters=self.first_conv_filters, 
-                                                   kernel_size=self.kernel_size, strides=self.strides,
+                                                   kernel_size=self.kernel_size1, strides=self.strides,
                                                    padding='SAME', name='conv1')
 
                     conv2 = self.layers.conv_layer(conv1, filters=self.first_conv_filters*2, 
-                                                   kernel_size=self.kernel_size, strides=self.strides,
+                                                   kernel_size=self.kernel_size2, strides=self.strides,
                                                    padding='SAME', name='conv2')
 
                     conv3 = self.layers.conv_layer(conv2, filters=self.first_conv_filters*4, 
-                                                   kernel_size=self.kernel_size, strides=self.strides,
+                                                   kernel_size=self.kernel_size3, strides=self.strides,
                                                    padding='SAME', name='conv3')
 
                     pool = self.layers.max_pool(conv3, self.maxpool_window_size, self.maxpool_strides,

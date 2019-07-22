@@ -5,7 +5,7 @@ import time
 
 import utils
 import datasets
-from NetworkLib import ConvGlimpseNet, LocationNet, ContextNet, ClassificationNet, RecurrentNet, BaselineNet
+from NetworkLib import GlimpseNet, LocationNet, ContextNet, ClassificationNet, RecurrentNet, BaselineNet
 
 import config
 
@@ -15,9 +15,10 @@ class DRAM(object):
         self.gstep = tf.Variable(0, dtype=tf.int32, 
                                  trainable=False, name='global_step')
         self.num_epochs = self.config.num_epochs
+        self.batch_size = self.config.batch_size
         self.isTraining = self.config.isTraining
 
-        self.dataset = datasets.MNIST(self.config.batch_size)
+        self.dataset = datasets.MNIST(self.batch_size)
 
     def get_data(self):
         """
@@ -85,18 +86,28 @@ class DRAM(object):
 
         self.logits, self.outputs, self.states, locations, mean_locations = self.rnn(self.init_glimpse, self.state_init_input, 
                                                                                      self.LSTM_cell1, self.LSTM_cell2)
-        self.loc_array.append(locations)
-        self.mean_loc_array.append(mean_locations)
+        self.loc_array += locations
+        self.mean_loc_array += mean_locations
+
+        self.sampled_locations = tf.concat(self.loc_array, axis=0)
+        self.mean_locations = tf.concat(self.mean_loc_array, axis=0)
+        self.sampled_locations = tf.reshape(self.sampled_locations, (self.config.num_glimpses, self.batch_size, 2))
+        self.sampled_locations = tf.transpose(self.sampled_locations, [1, 0, 2])
+        self.mean_locations = tf.reshape(self.mean_locations, (self.config.num_glimpses, self.batch_size, 2))
+        self.mean_locations = tf.transpose(self.mean_locations, [1, 0, 2])
+        prefix = tf.expand_dims(self.init_location, 1)
+        self.sampled_locations = tf.concat([prefix, self.sampled_locations], axis=1)
+        self.mean_locations = tf.concat([prefix, self.mean_locations], axis=1)
 
         # Calculate baseline
-        self.baseline = self.baseline_net(self.states[1])
+        self.baseline = self.baseline_net(self.states[1][0])
 
     def loglikelihood(self):
         with tf.name_scope("loglikelihood"):
             stddev = self.config.stddev
             mean = tf.stack(self.mean_loc_array)
             sampled = tf.stack(self.loc_array)
-            gaussian = tf.contrib.distributions.Normal(mean, stddev)
+            gaussian = tfp.contrib.distributions.Normal(mean, stddev)
             logll = gaussian.log_prob(sampled)
             logll = tf.reduce_sum(logll, 2)
             logll = tf.transpose(logll)  
@@ -189,11 +200,11 @@ class DRAM(object):
         sess.run(init)
         start = time.time()
         num_batches = 0
-        total_class_loss = 0
+        total_loss = 0
         try:
             while True:
                 cross_ent, hybrid_loss, logllratio, base_mse, _, summary = sess.run([self.cross_ent, self.hybrid_loss, 
-                                                                                     self.logllratio, self.baseline_mse
+                                                                                     self.logllratio, self.baseline_mse,
                                                                                      self.opt, self.summary_op])
                 writer.add_summary(summary, global_step=step)
                 if (step + 1) % self.config.report_step == 0:
