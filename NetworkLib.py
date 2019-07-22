@@ -134,10 +134,11 @@ class RecurrentNet(object):
         Dynamically updates list with glimpse vectors from locations determined by location network.
 
         Returns logits, list of outputs, a state tuple (state1, state2) for states corresponding to RNN layers,
-        and a location array to report locations visited.
+        a sampled location array, and a mean location array to report locations visited.
         """
         # Set initial values
-        location_array = []
+        loc_array = []
+        mean_loc_array = []
         outputs = []
         inputs = inputs
         state1 = cell1.get_initial_state(batch_size=self.batch_size, dtype=tf.float32)
@@ -150,11 +151,12 @@ class RecurrentNet(object):
                     tf.get_variable_scope().reuse_variables()
 
                 if prev is not None:
-                    loc = self.location_network(prev)
+                    loc, mean = self.location_network(prev)
                     input_vector = self.glimpse_network(loc)
 
                     # Add new location to output array of locations.
-                    location_array.append(loc)
+                    loc_array.append(loc)
+                    mean_loc_array.append(mean)
 
                 with tf.variable_scope("rnn_network", reuse=tf.AUTO_REUSE):
                     # First layer
@@ -169,7 +171,7 @@ class RecurrentNet(object):
         final_feature_vector = outputs[-1]
         logits = self.class_net(final_feature_vector)
 
-        return logits, outputs, (state1, state2), location_array
+        return logits, outputs, (state1, state2), loc_array, mean_loc_array
 
 
 class ContextNet(object):

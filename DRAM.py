@@ -78,27 +78,45 @@ class DRAM(object):
 
         self.init_location = tf.zeros([tf.shape(self.img)[0], 2], dtype=tf.float32, name='init_loc')
         self.loc_array = [self.init_location]
+        self.mean_loc_array = [self.init_location]
 
         self.init_glimpse = [self.gn(self.init_location)]
         self.init_glimpse.extend([0] * (self.config.num_glimpses - 1))
 
-        self.logits, self.outputs, self.states, locations = self.rnn(self.init_glimpse, self.state_init_input, 
-                                                                     self.LSTM_cell1, self.LSTM_cell2)
+        self.logits, self.outputs, self.states, locations, mean_locations = self.rnn(self.init_glimpse, self.state_init_input, 
+                                                                                     self.LSTM_cell1, self.LSTM_cell2)
         self.loc_array.append(locations)
+        self.mean_loc_array.append(mean_locations)
 
-        self.baseline = 
+        # Calculate baseline
+        self.baseline = self.baseline_net(self.states[1])
+
+    def loglikelihood(self):
+        with tf.name_scope("loglikelihood"):
+            stddev = self.config.stddev
+            mean = tf.stack(self.mean_loc_array)
+            sampled = tf.stack(self.loc_array)
+            gaussian = tf.contrib.distributions.Normal(mean, stddev)
+            logll = gaussian.log_prob(sampled)
+            logll = tf.reduce_sum(logll, 2)
+            logll = tf.transpose(logll)  
+        return logll
 
     def loss(self):
-        """
-        Calculate cross entropy loss for classification.
-        """
         with tf.name_scope("loss"):
             entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.label, logits=self.logits)
             self.cross_ent = tf.reduce_mean(entropy, name='cross_ent')
-            self.hybrid_loss = self.cross_ent
-    
-    def loglikelihood(self, ):
-        pass
+
+            preds = tf.nn.softmax(self.logits)
+            correct_preds = tf.equal(tf.argmax(preds, 1), tf.argmax(self.label, 1))
+            self.rewards = tf.reduce_mean(tf.cast(correct_preds, tf.float32))
+            self.baseline_mse = tf.reduce_mean(tf.square(self.rewards - self.baseline), name='baseline_mse')
+
+            self.logll = self.loglikelihood()
+            self.baseline_term = self.rewards - tf.stop_gradient(self.baseline)
+            self.logllratio = tf.reduce_mean(self.logll * self.baseline_term, name='loglikelihood_ratio')
+
+            self.hybrid_loss = -self.logllratio + self.cross_ent + self.baseline_mse
 
     def optimize(self):
         """
@@ -116,7 +134,6 @@ class DRAM(object):
         self.inference()
         self.loss()
         self.optimize()
-        # ------------------------ STILL NEED LOG POLICY GRADIENT CODE ------------------------------- #
         self.eval()
         self.summaries()
 
@@ -175,11 +192,14 @@ class DRAM(object):
         total_class_loss = 0
         try:
             while True:
-                cross_ent, hybrid_loss, _, summary = sess.run([self.cross_ent, self.hybrid_loss, 
-                                                               self.opt, self.summary_op])
+                cross_ent, hybrid_loss, logllratio, base_mse, _, summary = sess.run([self.cross_ent, self.hybrid_loss, 
+                                                                                     self.logllratio, self.baseline_mse
+                                                                                     self.opt, self.summary_op])
                 writer.add_summary(summary, global_step=step)
                 if (step + 1) % self.config.report_step == 0:
                     print("Cross entropy loss at step {0}: {1}".format(step, cross_ent))
+                    print("Baseline MSE at step {0}: {1}".format(step, base_mse))
+                    print("Loglikelihood ratio at step {0}: {1}".format(step, logllratio))
                     print("Total loss at step {0}: {1}".format(step, hybrid_loss))
                 num_batches += 1
                 total_loss += hybrid_loss
