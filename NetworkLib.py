@@ -102,11 +102,12 @@ class GlimpseNet(object):
 class LocationNet(object):
     def __init__(self, config):
         self.loc_net_dim = config.loc_net_dim
+        self.location_stddev = config.loc_net_stddev
         self.layers = Layers()
     
     def __call__(self, r2_vector):
         """
-        Call returns next location to extract glimpse from.
+        Call returns next location and mean.
 
         Next location (loc) is a 2-D tensor which represents (x, y)
 
@@ -114,10 +115,9 @@ class LocationNet(object):
         with weights trained through REINFORCE.
         """
         with tf.variable_scope("emission_network", reuse=tf.AUTO_REUSE):
-            loc = self.layers.fully_connected(r2_vector, self.loc_net_dim, "loc_fc")
-            loc = tf.clip_by_value(loc, -1., 1.)
-            loc = tf.stop_gradient(loc)
-        return loc
+            mean = self.layers.fully_connected(r2_vector, self.loc_net_dim, "loc_fc")
+            loc = mean + tf.random_normal((tf.shape(r2_vector)[0], 2), stddev= self.location_stddev)
+        return loc, mean
 
 class RecurrentNet(object):
     def __init__(self, config, location_network, glimpse_network, classification_network):
@@ -215,3 +215,12 @@ class ClassificationNet(object):
             logits = self.layers.fully_connected(feature_vector,
                                                  self.classification_net_dim, name='class_fc')
         return logits
+
+class BaselineNet(object):
+    def __init__(self):
+        self.layers = Layers()
+    
+    def __call__(self, feature_vector):
+        with tf.variable_scope("baseline", reuse=tf.AUTO_REUSE):
+            baseline = self.layers.fully_connected(feature_vector, 1, name='baseline_fc')
+        return baseline

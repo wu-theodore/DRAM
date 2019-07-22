@@ -40,4 +40,5 @@ class Config(object):
 
         # Location network parameters
         self.loc_net_dim = 2
+        self.loc_net_stddev = 0.001
 
