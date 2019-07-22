@@ -39,7 +39,7 @@ class DRAM(object):
         Defines LSTM cells for use in RNN
         """
         # Initiate Networks
-        self.gn = ConvGlimpseNet(self.img, self.config)
+        self.gn = GlimpseNet(self.img, self.config)
 
         self.ln = LocationNet(self.config)
 
@@ -80,7 +80,6 @@ class DRAM(object):
         self.init_glimpse = [self.gn(self.init_location)]
         self.init_glimpse.extend([0] * (self.config.num_glimpses - 1))
 
-        # -------------------------------CHECK WHETHER LIST OF OUTPUTS IS NEEDED OR NOT-----------------------------------
         self.logits, self.outputs, self.states, locations = self.rnn(self.init_glimpse, self.state_init_input, 
                                                                              self.LSTM_cell1, self.LSTM_cell2)
         self.loc_array.append(locations)
@@ -93,6 +92,9 @@ class DRAM(object):
             entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.label, logits=self.logits)
             self.class_loss = tf.reduce_mean(entropy, name='loss')
     
+    def REINFORCE(self):
+        pass
+
     def optimize(self):
         """
         Optimize action network using backpropagation by minimizing loss.

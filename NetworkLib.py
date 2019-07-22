@@ -3,7 +3,7 @@ import numpy as np
 from BaseLayers import Layers
 
 
-class ConvGlimpseNet(object):
+class GlimpseNet(object):
     """
     Receives a glimpse and location and outputs feature vector.
     """
@@ -25,8 +25,13 @@ class ConvGlimpseNet(object):
 
         # Network parameters
         self.first_conv_filters = config.first_conv_filters
-        self.kernel_size = config.kernel_size
+        self.kernel_size1 = config.kernel_size1
+        self.kernel_size2 = config.kernel_size2
+        self.kernel_size3 = config.kernel_size3
         self.strides = config.strides
+        self.maxpool_window_size = config.maxpool_window_size
+        self.maxpool_strides = config.maxpool_strides
+
         self.feature_vector_size = config.feature_vector_size
 
     def extract_glimpse(self, location, glimpse_size):
@@ -77,7 +82,8 @@ class ConvGlimpseNet(object):
                                                    kernel_size=self.kernel_size, strides=self.strides,
                                                    padding='SAME', name='conv3')
 
-                    pool = self.layers.max_pool(conv3, 2, 2, padding='VALID', name='maxpool')
+                    pool = self.layers.max_pool(conv3, self.maxpool_window_size, self.maxpool_strides,
+                                                padding='VALID', name='maxpool')
 
                 with tf.variable_scope('fully_connected', reuse=tf.AUTO_REUSE):
                     flattened_dim = pool.shape[1] * pool.shape[2] * pool.shape[3]
@@ -109,6 +115,7 @@ class LocationNet(object):
         """
         with tf.variable_scope("emission_network", reuse=tf.AUTO_REUSE):
             loc = self.layers.fully_connected(r2_vector, self.loc_net_dim, "loc_fc")
+            loc = tf.clip_by_value(loc, -1., 1.)
             loc = tf.stop_gradient(loc)
         return loc
 

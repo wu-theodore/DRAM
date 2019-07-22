@@ -26,10 +26,14 @@ class Config(object):
         self.glimpse_size = 8
         self.glimpse_scale = 2
         self.num_patches = 2
-        self.first_conv_filters = 16
-        self.kernel_size = 5
+        self.first_conv_filters = 32
+        self.kernel_size1 = 5
+        self.kernel_size2 = 3
+        self.kernel_size3 = 3
         self.strides = 1
-        self.feature_vector_size = 10
+        self.maxpool_window_size = 2
+        self.maxpool_strides = 2
+        self.feature_vector_size = 256
 
         # LSTM parameters
         self.cell_size = 256
