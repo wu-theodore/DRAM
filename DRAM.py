@@ -1,6 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
+# import tensorflow_probability as tfp
 import time
 
 import utils
@@ -99,15 +100,12 @@ class DRAM(object):
         self.sampled_locations = tf.concat([prefix, self.sampled_locations], axis=1)
         self.mean_locations = tf.concat([prefix, self.mean_locations], axis=1)
 
-        # Calculate baseline
-        self.baseline = self.baseline_net(self.states[1][0])
-
     def loglikelihood(self):
         with tf.name_scope("loglikelihood"):
             stddev = self.config.stddev
             mean = tf.stack(self.mean_loc_array)
             sampled = tf.stack(self.loc_array)
-            gaussian = tfp.contrib.distributions.Normal(mean, stddev)
+            gaussian = tf.distributions.Normal(mean, stddev)
             logll = gaussian.log_prob(sampled)
             logll = tf.reduce_sum(logll, 2)
             logll = tf.transpose(logll)  
@@ -115,18 +113,23 @@ class DRAM(object):
 
     def loss(self):
         with tf.name_scope("loss"):
+            # Cross entropy
             entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.label, logits=self.logits)
             self.cross_ent = tf.reduce_mean(entropy, name='cross_ent')
 
+            # Baseline MSE
+            self.baseline = self.baseline_net(self.states[1][0])
             preds = tf.nn.softmax(self.logits)
             correct_preds = tf.equal(tf.argmax(preds, 1), tf.argmax(self.label, 1))
             self.rewards = tf.reduce_mean(tf.cast(correct_preds, tf.float32))
             self.baseline_mse = tf.reduce_mean(tf.square(self.rewards - self.baseline), name='baseline_mse')
 
+            # Loglikelihood
             self.logll = self.loglikelihood()
             self.baseline_term = self.rewards - tf.stop_gradient(self.baseline)
             self.logllratio = tf.reduce_mean(self.logll * self.baseline_term, name='loglikelihood_ratio')
 
+            # Total Loss
             self.hybrid_loss = -self.logllratio + self.cross_ent + self.baseline_mse
 
     def optimize(self):
@@ -163,6 +166,8 @@ class DRAM(object):
         """
         with tf.name_scope("summaries"):
             tf.summary.scalar('cross_entropy', self.cross_ent)
+            tf.summary.scalar('baseline_mse', self.baseline_mse)
+            tf.summary.scalar('loglikelihood', self.logllratio)
             tf.summary.scalar('hybrid_loss', self.hybrid_loss)
             tf.summary.scalar('accuracy', self.accuracy)
             self.summary_op = tf.summary.merge_all()
@@ -208,18 +213,20 @@ class DRAM(object):
                                                                                      self.opt, self.summary_op])
                 writer.add_summary(summary, global_step=step)
                 if (step + 1) % self.config.report_step == 0:
+                    print("----------------LOSSES----------------")
                     print("Cross entropy loss at step {0}: {1}".format(step, cross_ent))
                     print("Baseline MSE at step {0}: {1}".format(step, base_mse))
                     print("Loglikelihood ratio at step {0}: {1}".format(step, logllratio))
                     print("Total loss at step {0}: {1}".format(step, hybrid_loss))
+                    print("--------------------------------------\n")
                 num_batches += 1
                 total_loss += hybrid_loss
                 step += 1
         except tf.errors.OutOfRangeError:
             pass
 
-        saver.save(sess, self.config.checkpoint_name, global_step=self.gstep)
-        print("Average classification loss per batch: {0}".format(total_class_loss / num_batches))
+        saver.save(sess, self.config.checkpoint_path + self.config.checkpoint_name, global_step=self.gstep)
+        print("Average classification loss per batch: {0}".format(total_loss / num_batches))
         print("Time taken: {}".format(time.time() - start))
         return step
     
