@@ -36,6 +36,6 @@ with the appropriate parameters to obtain the desired output.
 Main file which implements model construction and training. 
 
 ## To-Do:
-- [ ] Complete location network learning policy
+- [x] Complete location network learning policy
 - [ ] Develop more extensive and comprehensive metrics
 - [ ] Track locations visited and create visual plot/animation of learning
