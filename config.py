@@ -11,7 +11,7 @@ class Config(object):
 
         # Learning parameters
         self.lr = 0.001
-        self.num_epochs = 1
+        self.num_epochs = 10
         self.isTraining = True
     
         # Dataset details:
@@ -21,7 +21,7 @@ class Config(object):
         self.color_channels = 1
         self.num_classes = 10
 
-        # Glimpse network parameters
+        # Glimpse network and Context network parameters
         self.num_glimpses = 16
         self.glimpse_size = 8
         self.glimpse_scale = 2
@@ -41,6 +41,12 @@ class Config(object):
         # Location network parameters
         self.loc_net_dim = 2
         self.loc_net_stddev = 0.001
+
+        # Classification network parameters
+        self.classification_net_fc_dim = self.feature_vector_size / 4
+
+        # Baseline network parameters
+        self.baseline_fc1_dim = self.feature_vector_size / 4
 
         # Loglikelihood parameters
         self.stddev = 0.25

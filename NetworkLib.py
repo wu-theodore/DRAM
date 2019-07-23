@@ -133,9 +133,6 @@ class RecurrentNet(object):
         LSTM cells. 
 
         Dynamically updates list with glimpse vectors from locations determined by location network.
-
-        Returns logits, list of outputs, a state tuple (state1, state2) for states corresponding to RNN layers,
-        a sampled location array, and a mean location array to report locations visited.
         """
         # Set initial values
         loc_array = []
@@ -143,8 +140,7 @@ class RecurrentNet(object):
         outputs = []
         inputs = inputs
         state1 = cell1.get_initial_state(batch_size=self.batch_size, dtype=tf.float32)
-        state2 = cell2.get_initial_state(state_init, batch_size=self.batch_size, dtype=tf.float32)
-        print("STATE 2: {}".format(state2))
+        state2 = state_init
 
         prev = None
         with tf.compat.v1.variable_scope("core_network", reuse=tf.compat.v1.AUTO_REUSE):
@@ -179,6 +175,7 @@ class RecurrentNet(object):
 class ContextNet(object):
     def __init__(self, config):
         self.layers = Layers()
+        self.config = config
         self.batch_size = config.batch_size
         self.glimpse_size = config.glimpse_size
 
@@ -193,22 +190,26 @@ class ContextNet(object):
             self.coarse_image = tf.image.resize(input_img, 
                                                        [self.glimpse_size, self.glimpse_size])
                                                        
-            conv1 = self.layers.conv_layer(self.coarse_image, filters=16,
+            conv1 = self.layers.conv_layer(self.coarse_image, filters=self.config.first_conv_filters,
                                            kernel_size=5, strides=1, padding='SAME', name='conv1')
 
-            conv2 = self.layers.conv_layer(conv1, filters=32, kernel_size=5,
+            conv2 = self.layers.conv_layer(conv1, filters=self.config.first_conv_filters * 2, kernel_size=5,
                                            strides=1, padding='SAME', name='conv2')
 
-            initial_vector = self.layers.conv_layer(conv2, filters=64, kernel_size=5,
-                                                    strides=1, padding='SAME', name='conv3')
+            conv3 = self.layers.conv_layer(conv2, filters=self.config.first_conv_filters * 4, kernel_size=5,
+                                           strides=1, padding='SAME', name='conv3')
             
+            pool = self.layers.max_pool(conv3, ksize=self.config.maxpool_window_size,
+                                           strides=self.config.maxpool_strides, padding='VALID', name='maxpool')
+            flattened_dim = pool.shape[1] * pool.shape[2] * pool.shape[3]
+            flattened = tf.reshape(pool, [-1, flattened_dim], name='flatten')
+            initial_vector = self.layers.fully_connected(flattened, self.config.feature_vector_size, name='fc')
             return initial_vector
-
 
 class ClassificationNet(object):
     def __init__(self, config):
         self.layers = Layers()
-        self.classification_net_dim = config.num_classes
+        self.config = config
 
     def __call__(self, feature_vector):
         """
@@ -216,15 +217,17 @@ class ClassificationNet(object):
         to determine the appropriate class classification.
         """
         with tf.compat.v1.variable_scope("classification_network", reuse=tf.compat.v1.AUTO_REUSE):
-            logits = self.layers.fully_connected(feature_vector,
-                                                 self.classification_net_dim, name='class_fc')
+            fc = self.layers.fully_connected(feature_vector, self.config.classification_net_fc_dim, name='class_fc1')
+            logits = self.layers.fully_connected(feature_vector, self.config.num_classes, name='class_fc2')
         return logits
 
 class BaselineNet(object):
-    def __init__(self):
+    def __init__(self, config):
         self.layers = Layers()
+        self.config = config
     
     def __call__(self, feature_vector):
         with tf.compat.v1.variable_scope("baseline", reuse=tf.compat.v1.AUTO_REUSE):
-            baseline = self.layers.fully_connected(feature_vector, 1, name='baseline_fc')
+            fc = self.layers.fully_connected(feature_vector, self.config.baseline_fc1_dim, name='baseline_fc1')
+            baseline = self.layers.fully_connected(fc, 1, name='baseline_fc2')
         return baseline
