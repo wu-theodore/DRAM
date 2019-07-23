@@ -9,6 +9,8 @@ utils.py, MNIST data extraction and training function style from github reposito
 
 CS 20: "TensorFlow for Deep Learning Research" 
 
+Implementation using TensorFlow 1.14.
+
 ## Files and Usage
 
 ### utils.py
