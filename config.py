@@ -11,7 +11,7 @@ class Config(object):
 
         # Learning parameters
         self.lr = 0.001
-        self.num_epochs = 2
+        self.num_epochs = 1
         self.isTraining = True
     
         # Dataset details:
@@ -26,7 +26,7 @@ class Config(object):
         self.glimpse_size = 8
         self.glimpse_scale = 2
         self.num_patches = 2
-        self.first_conv_filters = 32
+        self.first_conv_filters = 8
         self.kernel_size1 = 5
         self.kernel_size2 = 3
         self.kernel_size3 = 3

@@ -54,7 +54,7 @@ class GlimpseNet(object):
         If num_patches > 1, foveate input glimpse
         by extracting additional larger patches, downsampling, and concatenating.
         """
-        with tf.variable_scope("glimpse_network", reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("glimpse_network", reuse=tf.compat.v1.AUTO_REUSE):
             input_glimpse = tf.Variable(np.empty([self.batch_size,
                                         self.glimpse_size, self.glimpse_size,
                                         0]), dtype=tf.float32, trainable=False, name="accum")
@@ -62,14 +62,14 @@ class GlimpseNet(object):
                 patch_glimpse = self.extract_glimpse(location,
                                                     self.glimpse_size * (self.glimpse_scale ** patch))
 
-                patch_glimpse = tf.image.resize_images(patch_glimpse, 
+                patch_glimpse = tf.image.resize(patch_glimpse, 
                                                        [self.glimpse_size, self.glimpse_size])
 
                 input_glimpse = tf.concat([input_glimpse, patch_glimpse], -1, name="concatenate")
 
             # Calculate image feature vector.
-            with tf.variable_scope("feature_network", reuse=tf.AUTO_REUSE):
-                with tf.variable_scope("convolutions", reuse=tf.AUTO_REUSE):
+            with tf.compat.v1.variable_scope("feature_network", reuse=tf.compat.v1.AUTO_REUSE):
+                with tf.compat.v1.variable_scope("convolutions", reuse=tf.compat.v1.AUTO_REUSE):
                     conv1 = self.layers.conv_layer(input_glimpse, filters=self.first_conv_filters, 
                                                    kernel_size=self.kernel_size1, strides=self.strides,
                                                    padding='SAME', name='conv1')
@@ -85,16 +85,16 @@ class GlimpseNet(object):
                     pool = self.layers.max_pool(conv3, self.maxpool_window_size, self.maxpool_strides,
                                                 padding='VALID', name='maxpool')
 
-                with tf.variable_scope('fully_connected', reuse=tf.AUTO_REUSE):
+                with tf.compat.v1.variable_scope('fully_connected', reuse=tf.compat.v1.AUTO_REUSE):
                     flattened_dim = pool.shape[1] * pool.shape[2] * pool.shape[3]
                     flattened = tf.reshape(pool, [-1, flattened_dim], name='flatten') 
                     image_vector = self.layers.fully_connected(flattened, self.feature_vector_size, 'fc_image') 
             
             # Calculate location vector
-            with tf.variable_scope("location_network", reuse=tf.AUTO_REUSE):
+            with tf.compat.v1.variable_scope("location_network", reuse=tf.compat.v1.AUTO_REUSE):
                 location_vector = self.layers.fully_connected(location, self.feature_vector_size, name='fc_location')
 
-            with tf.variable_scope("element_multiplication"):
+            with tf.compat.v1.variable_scope("element_multiplication"):
                 feature_vector = tf.nn.relu(tf.math.multiply(location_vector, image_vector, name='element_multiplication'))
 
             return feature_vector
@@ -114,9 +114,10 @@ class LocationNet(object):
         Input vector r2 from RNN network passed through hidden fc layer, 
         with weights trained through REINFORCE.
         """
-        with tf.variable_scope("emission_network", reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("emission_network", reuse=tf.compat.v1.AUTO_REUSE):
             mean = self.layers.fully_connected(r2_vector, self.loc_net_dim, "loc_fc")
-            loc = mean + tf.random_normal((tf.shape(r2_vector)[0], 2), stddev= self.location_stddev)
+            loc = mean + tf.random.normal((tf.shape(r2_vector)[0], 2), stddev= self.location_stddev)
+            loc = tf.stop_gradient(loc)
         return loc, mean
 
 class RecurrentNet(object):
@@ -143,12 +144,13 @@ class RecurrentNet(object):
         inputs = inputs
         state1 = cell1.get_initial_state(batch_size=self.batch_size, dtype=tf.float32)
         state2 = cell2.get_initial_state(state_init, batch_size=self.batch_size, dtype=tf.float32)
+        print("STATE 2: {}".format(state2))
 
         prev = None
-        with tf.variable_scope("core_network", reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("core_network", reuse=tf.compat.v1.AUTO_REUSE):
             for iteration, input_vector in enumerate(inputs):
                 if iteration > 0:
-                    tf.get_variable_scope().reuse_variables()
+                    tf.compat.v1.get_variable_scope().reuse_variables()
 
                 if prev is not None:
                     loc, mean = self.location_network(prev)
@@ -158,7 +160,7 @@ class RecurrentNet(object):
                     loc_array.append(loc)
                     mean_loc_array.append(mean)
 
-                with tf.variable_scope("rnn_network", reuse=tf.AUTO_REUSE):
+                with tf.compat.v1.variable_scope("rnn_network", reuse=tf.compat.v1.AUTO_REUSE):
                     # First layer
                     r1_vector, state1 = cell1(input_vector, state1)
                     outputs.append(r1_vector)
@@ -187,8 +189,8 @@ class ContextNet(object):
         Used to calculate a coarse image vector to be used in determining
         initial state of the second LSTM layer.
         """
-        with tf.variable_scope("context_network", reuse=tf.AUTO_REUSE):
-            self.coarse_image = tf.image.resize_images(input_img, 
+        with tf.compat.v1.variable_scope("context_network", reuse=tf.compat.v1.AUTO_REUSE):
+            self.coarse_image = tf.image.resize(input_img, 
                                                        [self.glimpse_size, self.glimpse_size])
                                                        
             conv1 = self.layers.conv_layer(self.coarse_image, filters=16,
@@ -213,7 +215,7 @@ class ClassificationNet(object):
         Gives logits of the final feature vector, which is used
         to determine the appropriate class classification.
         """
-        with tf.variable_scope("classification_network", reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("classification_network", reuse=tf.compat.v1.AUTO_REUSE):
             logits = self.layers.fully_connected(feature_vector,
                                                  self.classification_net_dim, name='class_fc')
         return logits
@@ -223,6 +225,6 @@ class BaselineNet(object):
         self.layers = Layers()
     
     def __call__(self, feature_vector):
-        with tf.variable_scope("baseline", reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("baseline", reuse=tf.compat.v1.AUTO_REUSE):
             baseline = self.layers.fully_connected(feature_vector, 1, name='baseline_fc')
         return baseline

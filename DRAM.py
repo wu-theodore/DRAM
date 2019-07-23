@@ -1,7 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
-# import tensorflow_probability as tfp
+import tensorflow_probability as tfp
 import time
 
 import utils
@@ -27,8 +27,8 @@ class DRAM(object):
         """
         with tf.name_scope('data'):
             train_dataset, test_dataset = self.dataset.get_mnist_dataset()
-            iterator = tf.data.Iterator.from_structure(train_dataset.output_types,
-                                                    train_dataset.output_shapes)
+            iterator = tf.compat.v1.data.Iterator.from_structure(tf.compat.v1.data.get_output_types(train_dataset),
+                                                                 tf.compat.v1.data.get_output_shapes(train_dataset))
             img, self.label = iterator.get_next()
             self.img = tf.reshape(img, [-1, self.config.height, self.config.width, self.config.color_channels])
             self.train_init = iterator.make_initializer(train_dataset)
@@ -105,7 +105,7 @@ class DRAM(object):
             stddev = self.config.stddev
             mean = tf.stack(self.mean_loc_array)
             sampled = tf.stack(self.loc_array)
-            gaussian = tf.distributions.Normal(mean, stddev)
+            gaussian = tfp.distributions.Normal(mean, stddev)
             logll = gaussian.log_prob(sampled)
             logll = tf.reduce_sum(logll, 2)
             logll = tf.transpose(logll)  
@@ -136,7 +136,7 @@ class DRAM(object):
         """
         Optimize action network using backpropagation by minimizing loss.
         """
-        self.opt = tf.train.AdamOptimizer(self.config.lr).minimize(self.hybrid_loss, 
+        self.opt = tf.compat.v1.train.AdamOptimizer(self.config.lr).minimize(self.hybrid_loss, 
                                                 global_step=self.gstep)
 
     def build(self):
@@ -165,12 +165,12 @@ class DRAM(object):
         Create summaries to write to tensorboard.
         """
         with tf.name_scope("summaries"):
-            tf.summary.scalar('cross_entropy', self.cross_ent)
-            tf.summary.scalar('baseline_mse', self.baseline_mse)
-            tf.summary.scalar('loglikelihood', self.logllratio)
-            tf.summary.scalar('hybrid_loss', self.hybrid_loss)
-            tf.summary.scalar('accuracy', self.accuracy)
-            self.summary_op = tf.summary.merge_all()
+            tf.compat.v1.summary.scalar('cross_entropy', self.cross_ent)
+            tf.compat.v1.summary.scalar('baseline_mse', self.baseline_mse)
+            tf.compat.v1.summary.scalar('loglikelihood', self.logllratio)
+            tf.compat.v1.summary.scalar('hybrid_loss', self.hybrid_loss)
+            tf.compat.v1.summary.scalar('accuracy', self.accuracy)
+            self.summary_op = tf.compat.v1.summary.merge_all()
 
     def train(self, num_epochs, isTraining):
         """
@@ -179,16 +179,15 @@ class DRAM(object):
         """
         self.num_epochs = num_epochs
         utils.make_dir(self.config.checkpoint_path)
-        writer = tf.summary.FileWriter(self.config.graphs_path, tf.get_default_graph())
+        writer = tf.compat.v1.summary.FileWriter(self.config.graphs_path, tf.compat.v1.get_default_graph())
 
-        with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
-            saver = tf.train.Saver()
+        with tf.compat.v1.Session() as sess:
+            sess.run(tf.compat.v1.global_variables_initializer())
+            saver = tf.compat.v1.train.Saver()
             ckpt = tf.train.get_checkpoint_state(os.path.dirname(self.config.checkpoint_path))
             if ckpt and ckpt.model_checkpoint_path:
                 print("Checkpoint path found, restoring:")
                 saver.restore(sess, ckpt.model_checkpoint_path)
-
             step = self.gstep.eval()
 
             if isTraining:
@@ -208,12 +207,13 @@ class DRAM(object):
         total_loss = 0
         try:
             while True:
-                cross_ent, hybrid_loss, logllratio, base_mse, _, summary = sess.run([self.cross_ent, self.hybrid_loss, 
-                                                                                     self.logllratio, self.baseline_mse,
-                                                                                     self.opt, self.summary_op])
+                cross_ent, hybrid_loss, logllratio, base_mse, accuracy, _, summary = sess.run([self.cross_ent, self.hybrid_loss, 
+                                                                                               self.logllratio, self.baseline_mse,
+                                                                                               self.accuracy, self.opt, self.summary_op])
                 writer.add_summary(summary, global_step=step)
                 if (step + 1) % self.config.report_step == 0:
                     print("----------------LOSSES----------------")
+                    print("Accuracy at step {0}: {1}".format(step, accuracy))
                     print("Cross entropy loss at step {0}: {1}".format(step, cross_ent))
                     print("Baseline MSE at step {0}: {1}".format(step, base_mse))
                     print("Loglikelihood ratio at step {0}: {1}".format(step, logllratio))
@@ -226,7 +226,7 @@ class DRAM(object):
             pass
 
         saver.save(sess, self.config.checkpoint_path + self.config.checkpoint_name, global_step=self.gstep)
-        print("Average classification loss per batch: {0}".format(total_loss / num_batches))
+        print("Average loss per batch: {0}".format(total_loss / num_batches))
         print("Time taken: {}".format(time.time() - start))
         return step
     
@@ -243,8 +243,10 @@ class DRAM(object):
                 num_batches += 1
         except tf.errors.OutOfRangeError:
             pass
+        print("-----------------EVAL----------------")
         print("Average accuracy: {}".format(total_acc / num_batches))
         print("Time taken: {}".format(time.time() - start))
+        print('\n')
 
 if __name__ == "__main__":
     test = DRAM()

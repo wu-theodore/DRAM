@@ -9,13 +9,13 @@ class Layers(object):
         Basic convolutional layer.
         """
         input_channels = inputs.shape[-1]
-        with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
-            kernel = tf.get_variable('kernel', 
+        with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
+            kernel = tf.compat.v1.get_variable('kernel', 
                                      shape=[kernel_size, kernel_size, input_channels, filters],
-                                     initializer=tf.truncated_normal_initializer(dtype=tf.float32))
+                                     initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
 
-            bias = tf.get_variable('bias', shape=[filters],
-                                initializer=tf.random_normal_initializer(dtype=tf.float32))
+            bias = tf.compat.v1.get_variable('bias', shape=[filters],
+                                initializer=tf.random_normal_initializer(), dtype=tf.float32)
                                 
             conv = tf.nn.conv2d(inputs, filter=kernel,
                                 strides=[1, strides, strides, 1],
@@ -28,8 +28,8 @@ class Layers(object):
         """
         A basic max pooling layer.
         """
-        with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
-            pool = tf.nn.max_pool(inputs, ksize=[1, ksize, ksize, 1],
+        with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
+            pool = tf.nn.max_pool2d(inputs, ksize=[1, ksize, ksize, 1],
                                   strides=[1, strides, strides, 1], 
                                   padding=padding, name=name)
             return pool
@@ -41,12 +41,12 @@ class Layers(object):
         Output not ReLU'd
         """
         in_dim = inputs.shape[-1]
-        with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
-            w = tf.get_variable("weights", shape=[in_dim, out_dim],
-                                initializer=tf.truncated_normal_initializer(dtype=tf.float32))
+        with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
+            w = tf.compat.v1.get_variable("weights", shape=[in_dim, out_dim],
+                                initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
 
-            b = tf.get_variable("biases", shape=[out_dim],
-                                initializer=tf.random_normal_initializer(dtype=tf.float32))
+            b = tf.compat.v1.get_variable("biases", shape=[out_dim],
+                                initializer=tf.random_normal_initializer(), dtype=tf.float32)
 
             out = tf.matmul(inputs, w) + b
             return tf.nn.relu(out)
