@@ -7,6 +7,7 @@ import time
 import utils
 import datasets
 from NetworkLib import GlimpseNet, LocationNet, ContextNet, ClassificationNet, RecurrentNet, BaselineNet
+from visualizer import Visualizer
 
 import config
 
@@ -51,13 +52,13 @@ class DRAM(object):
 
         self.rnn = RecurrentNet(self.config, self.ln, self.gn, self.class_net)
 
-        self.baseline_net = BaselineNet()
+        self.baseline_net = BaselineNet(self.config)
 
-        # Initiate LSTM cells for RNN
-        self.LSTM_cell1 = tf.keras.layers.LSTMCell(self.config.cell_size, 
-                                                  activation=tf.nn.tanh, unit_forget_bias=True)
-        self.LSTM_cell2 = tf.keras.layers.LSTMCell(self.config.cell_size, 
-                                                  activation=tf.nn.tanh, unit_forget_bias=True)
+        # Initiate GRU cells for RNN
+        self.GRU_cell1 = tf.nn.rnn_cell.GRUCell(self.config.cell_size, 
+                                                  activation=tf.nn.tanh)
+        self.GRU_cell2 = tf.nn.rnn_cell.GRUCell(self.config.cell_size, 
+                                                  activation=tf.nn.tanh)
 
     def inference(self):
         """
@@ -86,10 +87,11 @@ class DRAM(object):
         self.init_glimpse.extend([0] * (self.config.num_glimpses - 1))
 
         self.logits, self.outputs, self.states, locations, mean_locations = self.rnn(self.init_glimpse, self.state_init_input, 
-                                                                                     self.LSTM_cell1, self.LSTM_cell2)
+                                                                                     self.GRU_cell1, self.GRU_cell2)
         self.loc_array += locations
         self.mean_loc_array += mean_locations
 
+        # -------------------------------------------CHECK---------------------------------------------
         self.sampled_locations = tf.concat(self.loc_array, axis=0)
         self.mean_locations = tf.concat(self.mean_loc_array, axis=0)
         self.sampled_locations = tf.reshape(self.sampled_locations, (self.config.num_glimpses, self.batch_size, 2))
@@ -118,7 +120,7 @@ class DRAM(object):
             self.cross_ent = tf.reduce_mean(entropy, name='cross_ent')
 
             # Baseline MSE
-            self.baseline = self.baseline_net(self.states[1][0])
+            self.baseline = self.baseline_net(self.states[1])
             preds = tf.nn.softmax(self.logits)
             correct_preds = tf.equal(tf.argmax(preds, 1), tf.argmax(self.label, 1))
             self.rewards = tf.reduce_mean(tf.cast(correct_preds, tf.float32))
@@ -247,6 +249,7 @@ class DRAM(object):
         print("Average accuracy: {}".format(total_acc / num_batches))
         print("Time taken: {}".format(time.time() - start))
         print('\n')
+
 
 if __name__ == "__main__":
     test = DRAM()
