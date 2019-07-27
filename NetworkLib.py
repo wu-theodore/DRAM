@@ -77,6 +77,8 @@ class GlimpseNet(object):
                     conv2 = self.layers.conv_layer(conv1, filters=self.first_conv_filters*2, 
                                                    kernel_size=self.kernel_size2, strides=self.strides,
                                                    padding='SAME', name='conv2')
+                    
+                    conv2 = tf.layers.batch_normalization(conv2, training=True)
 
                     conv3 = self.layers.conv_layer(conv2, filters=self.first_conv_filters*4, 
                                                    kernel_size=self.kernel_size3, strides=self.strides,
@@ -88,14 +90,17 @@ class GlimpseNet(object):
                 with tf.compat.v1.variable_scope('fully_connected', reuse=tf.compat.v1.AUTO_REUSE):
                     flattened_dim = pool.shape[1] * pool.shape[2] * pool.shape[3]
                     flattened = tf.reshape(pool, [-1, flattened_dim], name='flatten') 
-                    image_vector = self.layers.fully_connected(flattened, self.feature_vector_size, 'fc_image') 
+                    fc = self.layers.fully_connected(flattened, self.feature_vector_size, 'fc_image')
+                    fc = tf.layers.batch_normalization(fc, trainable=True)
+                    image_vector = tf.compat.v1.nn.relu(fc) 
             
             # Calculate location vector
             with tf.compat.v1.variable_scope("location_network", reuse=tf.compat.v1.AUTO_REUSE):
-                location_vector = self.layers.fully_connected(location, self.feature_vector_size, name='fc_location')
+                fc = self.layers.fully_connected(location, self.feature_vector_size, name='fc_location')
+                location_vector = tf.compat.v1.nn.relu(fc)
 
             with tf.compat.v1.variable_scope("element_multiplication"):
-                feature_vector = tf.nn.relu(tf.math.multiply(location_vector, image_vector, name='element_multiplication'))
+                feature_vector = tf.math.multiply(location_vector, image_vector, name='element_multiplication')
 
             return feature_vector
 
@@ -115,7 +120,7 @@ class LocationNet(object):
         with weights trained through REINFORCE.
         """
         with tf.compat.v1.variable_scope("emission_network", reuse=tf.compat.v1.AUTO_REUSE):
-            mean = self.layers.fully_connected(r2_vector, self.loc_net_dim, "loc_fc")
+            mean = tf.stop_gradient(tf.clip_by_value(self.layers.fully_connected(r2_vector, self.loc_net_dim, "loc_fc"), -1, 1))
             loc = mean + tf.random.normal((tf.shape(r2_vector)[0], 2), stddev= self.location_stddev)
             loc = tf.stop_gradient(loc)
         return loc, mean
@@ -127,10 +132,10 @@ class RecurrentNet(object):
         self.glimpse_network = glimpse_network
         self.class_net = classification_network
 
-    def __call__(self, inputs, state_init, cell1, cell2):
+    def __call__(self, inputs, cell):
         """
         Takes list of input glimpses, which are passed through two layer RNN with
-        LSTM cells. 
+        GRU cells. 
 
         Dynamically updates list with glimpse vectors from locations determined by location network.
         """
@@ -139,15 +144,11 @@ class RecurrentNet(object):
         mean_loc_array = []
         outputs = []
         inputs = inputs
-        state1 = cell1.get_initial_state(batch_size=self.batch_size, dtype=tf.float32)
-        state2 = state_init
-
+        state = cell.get_initial_state(batch_size=self.batch_size, dtype=tf.float32)
         prev = None
-        with tf.compat.v1.variable_scope("core_network", reuse=tf.compat.v1.AUTO_REUSE):
+        
+        with tf.compat.v1.name_scope("core_network"):
             for iteration, input_vector in enumerate(inputs):
-                if iteration > 0:
-                    tf.compat.v1.get_variable_scope().reuse_variables()
-
                 if prev is not None:
                     loc, mean = self.location_network(prev)
                     input_vector = self.glimpse_network(loc)
@@ -157,19 +158,15 @@ class RecurrentNet(object):
                     mean_loc_array.append(mean)
 
                 with tf.compat.v1.variable_scope("rnn_network", reuse=tf.compat.v1.AUTO_REUSE):
-                    # First layer
-                    r1_vector, state1 = cell1(input_vector, state1)
-                    outputs.append(r1_vector)
+                    output, state = cell(input_vector, state)
+                    outputs.append(output)
 
-                    # Second layer
-                    r2_vector, state2 = cell2(r1_vector, state2)
-                    prev = r2_vector
-                
+                prev = output
 
         final_feature_vector = outputs[-1]
         logits = self.class_net(final_feature_vector)
 
-        return logits, outputs, (state1, state2), loc_array, mean_loc_array
+        return logits, outputs, loc_array, mean_loc_array
 
 
 class ContextNet(object):
@@ -177,7 +174,6 @@ class ContextNet(object):
         self.layers = Layers()
         self.config = config
         self.batch_size = config.batch_size
-        self.glimpse_size = config.glimpse_size
 
     def __call__(self, input_img):
         """
@@ -187,23 +183,17 @@ class ContextNet(object):
         initial state of the second LSTM layer.
         """
         with tf.compat.v1.variable_scope("context_network", reuse=tf.compat.v1.AUTO_REUSE):
-            self.coarse_image = tf.image.resize(input_img, 
-                                                       [self.glimpse_size, self.glimpse_size])
+            self.coarse_image = tf.image.resize_images(input_img, 
+                                                       [self.config.coarse_size, self.config.coarse_size], name='resize')
                                                        
-            conv1 = self.layers.conv_layer(self.coarse_image, filters=self.config.first_conv_filters,
-                                           kernel_size=5, strides=1, padding='SAME', name='conv1')
-
+            conv1 = self.layers.conv_layer(self.coarse_image, filters=self.config.first_conv_filters, kernel_size=self.config.kernel_size1, 
+                                           strides=self.config.strides, padding='SAME', name='conv1')
             conv2 = self.layers.conv_layer(conv1, filters=self.config.first_conv_filters * 2, kernel_size=5,
                                            strides=1, padding='SAME', name='conv2')
-
             conv3 = self.layers.conv_layer(conv2, filters=self.config.first_conv_filters * 4, kernel_size=5,
                                            strides=1, padding='SAME', name='conv3')
-            
-            pool = self.layers.max_pool(conv3, ksize=self.config.maxpool_window_size,
-                                           strides=self.config.maxpool_strides, padding='VALID', name='maxpool')
-            flattened_dim = pool.shape[1] * pool.shape[2] * pool.shape[3]
-            flattened = tf.reshape(pool, [-1, flattened_dim], name='flatten')
-            initial_vector = self.layers.fully_connected(flattened, self.config.feature_vector_size, name='fc')
+            flattened_dim = conv3.shape[1] * conv3.shape[2] * conv3.shape[3]
+            initial_vector = tf.reshape(conv3, [-1, flattened_dim], name='flatten')
             return initial_vector
 
 class ClassificationNet(object):
@@ -218,7 +208,8 @@ class ClassificationNet(object):
         """
         with tf.compat.v1.variable_scope("classification_network", reuse=tf.compat.v1.AUTO_REUSE):
             fc = self.layers.fully_connected(feature_vector, self.config.classification_net_fc_dim, name='class_fc1')
-            logits = self.layers.fully_connected(feature_vector, self.config.num_classes, name='class_fc2')
+            fc = tf.compat.v1.nn.relu(fc)
+            logits = self.layers.fully_connected(fc, self.config.num_classes, name='class_fc2')
         return logits
 
 class BaselineNet(object):
@@ -228,6 +219,6 @@ class BaselineNet(object):
     
     def __call__(self, feature_vector):
         with tf.compat.v1.variable_scope("baseline", reuse=tf.compat.v1.AUTO_REUSE):
-            fc = self.layers.fully_connected(feature_vector, self.config.baseline_fc1_dim, name='baseline_fc1')
-            baseline = self.layers.fully_connected(fc, 1, name='baseline_fc2')
+            baseline = self.layers.fully_connected(feature_vector, 1, name='baseline_fc')
+            baseline = tf.compat.v1.nn.relu(baseline)
         return baseline

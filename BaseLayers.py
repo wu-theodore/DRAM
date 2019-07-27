@@ -15,13 +15,13 @@ class Layers(object):
                                      initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
 
             bias = tf.compat.v1.get_variable('bias', shape=[filters],
-                                initializer=tf.random_normal_initializer(), dtype=tf.float32)
+                                initializer=tf.zeros_initializer(), dtype=tf.float32)
                                 
             conv = tf.nn.conv2d(inputs, filter=kernel,
                                 strides=[1, strides, strides, 1],
                                 padding=padding, name='conv')
 
-            out = tf.nn.relu(conv + bias, name=name)
+            out = tf.nn.relu(conv + bias)
             return out
 
     def max_pool(self, inputs, ksize, strides, padding='VALID', name='maxpool'):
@@ -37,16 +37,14 @@ class Layers(object):
     def fully_connected(self, inputs, out_dim, name):
         """
         Basic fully connected layer.
-        
-        Output not ReLU'd
         """
         in_dim = inputs.shape[-1]
         with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
             w = tf.compat.v1.get_variable("weights", shape=[in_dim, out_dim],
-                                initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
+                                initializer=tf.contrib.layers.xavier_initializer(), dtype=tf.float32)
 
             b = tf.compat.v1.get_variable("biases", shape=[out_dim],
-                                initializer=tf.random_normal_initializer(), dtype=tf.float32)
+                                initializer=tf.zeros_initializer(), dtype=tf.float32)
 
             out = tf.matmul(inputs, w) + b
-            return tf.nn.relu(out)
+            return out
