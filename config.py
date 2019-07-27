@@ -1,53 +1,60 @@
 class Config(object):
-    def __init__(self):
-        """
-        Define hyperparameters here.
-        """
-        # Saver/Writer details
-        self.checkpoint_path = 'checkpoints/mnist/'
-        self.checkpoint_name = 'DRAM-mnist'
-        self.report_step = 50
-        self.graphs_path = 'graphs/mnist/'
+    """
+    Define hyperparameters here.
+    """
+    # Saver/Writer details
+    checkpoint_path = 'checkpoints/mnist/'
+    checkpoint_name = 'DRAM-mnist'
+    report_step = 50
+    graphs_path = 'graphs/mnist/'
 
-        # Learning parameters
-        self.lr = 0.001
-        self.num_epochs = 10
-        self.isTraining = True
-    
-        # Dataset details:
-        self.batch_size = 100
-        self.height = 28
-        self.width = 28
-        self.color_channels = 1
-        self.num_classes = 10
+    # Visualizer details
+    visualize_step = 500
+    image_dir_name = 'images/'
 
-        # Glimpse network and Context network parameters
-        self.num_glimpses = 16
-        self.glimpse_size = 8
-        self.glimpse_scale = 2
-        self.num_patches = 2
-        self.first_conv_filters = 8
-        self.kernel_size1 = 5
-        self.kernel_size2 = 3
-        self.kernel_size3 = 3
-        self.strides = 1
-        self.maxpool_window_size = 2
-        self.maxpool_strides = 2
-        self.feature_vector_size = 256
+    # Training parameters
+    lr = 0.01
+    num_epochs = 20
+    max_global_norm = 5.0
+    isTraining = True
+    isVisualize = True
 
-        # LSTM parameters
-        self.cell_size = 256
+    # Dataset details:
+    batch_size = 100
+    height = 28
+    width = 28
+    color_channels = 1
+    num_classes = 10
 
-        # Location network parameters
-        self.loc_net_dim = 2
-        self.loc_net_stddev = 0.001
+    # Glimpse network and Context network parameters
+    num_glimpses = 4
+    glimpse_size = 8
+    glimpse_scale = 2
+    num_patches = 2
+    first_conv_filters = 8
+    kernel_size1 = 5
+    kernel_size2 = 3
+    kernel_size3 = 3
+    strides = 1
+    maxpool_window_size = 2
+    maxpool_strides = 2
+    feature_vector_size = 64
 
-        # Classification network parameters
-        self.classification_net_fc_dim = self.feature_vector_size / 4
+    # LSTM parameters
+    cell_size = feature_vector_size
 
-        # Baseline network parameters
-        self.baseline_fc1_dim = self.feature_vector_size / 4
+    # Location network parameters
+    loc_net_dim = 2
+    loc_net_stddev = 0.001
 
-        # Loglikelihood parameters
-        self.stddev = 0.25
+    # Classification network parameters
+    classification_net_fc_dim = feature_vector_size / 4
 
+    # Context network parameters
+    coarse_size = 64
+
+    # Loglikelihood parameters
+    stddev = 0.25
+
+    # Loss parameters
+    reward_weight = 5
