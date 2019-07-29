@@ -219,8 +219,10 @@ class DRAM(object):
                 # print("CONTEXT VECTOR: {}".format(self.state_init_input.eval()))
                 # print("INITIAL LOCATION: {}".format(self.mean_locations[:, 0].eval()))
 
-                fetches = [self.cross_ent, self.hybrid_loss, self.logllratio, self.baseline_mse, self.accuracy, self.opt, self.summary_op]
-                cross_ent, hybrid_loss, logllratio, base_mse, accuracy, _, summary = sess.run(fetches)
+                fetches = [self.cross_ent, self.hybrid_loss, self.logllratio, self.baseline_mse,
+                           self.accuracy, self.opt, self.summary_op, self.mean_locations,
+                           self.preds, self.label, self.img]
+                cross_ent, hybrid_loss, logllratio, base_mse, accuracy, _, summary, locations, preds, labels, imgs = sess.run(fetches)
                 writer.add_summary(summary, global_step=step)
 
                 if (step + 1) % self.config.report_step == 0:
@@ -233,10 +235,7 @@ class DRAM(object):
                     print("--------------------------------------\n")
 
                 if (step + 1) % self.config.visualize_step == 0 and self.isVisualize:
-                    locations = self.mean_locations.eval()
-                    preds = self.preds.eval()
-                    labels = self.label.eval()
-                    plot_glimpse(self.config, self.img.eval(), locations, preds, labels, step)
+                    plot_glimpse(self.config, imgs, locations, preds, labels, step)
 
                 num_batches += 1
                 total_loss += hybrid_loss
