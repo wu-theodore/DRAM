@@ -2,16 +2,6 @@ class Config(object):
     """
     Define hyperparameters here.
     """
-    # Saver/Writer details
-    checkpoint_path = 'checkpoints/mnist/'
-    checkpoint_name = 'DRAM-mnist'
-    report_step = 50
-    graphs_path = 'graphs/mnist/'
-
-    # Visualizer details
-    visualize_step = 500
-    image_dir_name = 'images/'
-
     # Training parameters
     lr = 0.01
     num_epochs = 20
@@ -25,12 +15,14 @@ class Config(object):
     width = 28
     color_channels = 1
     num_classes = 10
+    object_labels = ('0', '1', '2', '3', '4', '5',
+                     '6', '7', '8', '9')
 
     # Glimpse network and Context network parameters
-    num_glimpses = 4
+    num_glimpses = 6
     glimpse_size = 8
     glimpse_scale = 2
-    num_patches = 2
+    num_patches = 1
     first_conv_filters = 8
     kernel_size1 = 5
     kernel_size2 = 3
@@ -58,3 +50,14 @@ class Config(object):
 
     # Loss parameters
     reward_weight = 5
+
+    # Saver/Writer details
+    checkpoint_path = 'checkpoints/mnist/lr={}n_glimpse={}glimpse_size{}n_patch={}/'.format(lr, num_glimpses, glimpse_size, num_patches)
+    checkpoint_name = 'DRAM-mnist'
+    report_step = 50
+    graphs_path = 'graphs/mnist/lr={}n_glimpse={}glimpse_size{}n_patch={}/'.format(lr, num_glimpses, glimpse_size, num_patches)
+
+   # Visualizer details
+    visualize_step = 550
+    verbose = 20
+    image_dir_name = 'images/mnist/lr={}n_glimpse={}glimpse_size{}n_patch={}/'.format(lr, num_glimpses, glimpse_size, num_patches)
