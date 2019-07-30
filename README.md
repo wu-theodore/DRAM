@@ -22,7 +22,7 @@ Each class defines its own dataset. Within the class, preprocessing is done to c
 and labels to a valid tuple, which can be passed into utils.convert_to_dataset() to obtain test and training datasets. 
 Should return the training and test datasets.
 
-Currently contains data for: MNIST
+Currently contains data for MNIST, additional tests and corresponding data run on BICI servers.
 
 ### BaseLayers.py
 Defines basic layers used for convolutional and fully-connected components of the DRAM model under the Layers class. 
@@ -40,4 +40,4 @@ Main file which implements model construction and training.
 ## To-Do:
 - [x] Complete location network learning policy
 - [ ] Develop more extensive and comprehensive metrics
-- [ ] Track locations visited and create visual plot/animation of learning
+- [x] Track locations visited and create visual plot/animation of learning
