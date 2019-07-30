@@ -19,6 +19,9 @@ def plot_glimpse(config, images, locations, preds, labels, step):
     num_glimpses = config.num_glimpses
     img_idx_range = config.verbose
     object_labels = config.object_labels
+    
+    # animation writer
+    writer = animation.ImageMagickWriter(fps=15, bitrate=1800)
 
     # factors used to correct location and bounding box center
     hw = img_h / 2
@@ -28,16 +31,16 @@ def plot_glimpse(config, images, locations, preds, labels, step):
         utils.make_dir(config.image_dir_name + 'step{}/image{}'.format(step, img_idx))
 
         fig, ax = plt.subplots(1, 2)
-        glimpse_fig, glimpse_ax = plt.subplots(1)
+        glimpse_fig = plt.figure()
         img = np.squeeze(images[img_idx])
         glimpse_bboxes = []
         # map locations from [-1, 1] to [0, 28] image space
         locations[img_idx] = (locations[img_idx] * hw) + 14
 
         ax[0].imshow(img, cmap='Greys', interpolation='none')
-        for glimpse in range(num_glimpses):
+        for glimpse in range(num_glimpses):            
+            glimpse_ax = glimpse_fig.add_subplot(111, label='glimpse{}'.format(glimpse))
             glimpse_ax.imshow(img, cmap='Greys', interpolation='none')
-
             location = locations[img_idx, glimpse]
             if (glimpse == 0):
                 color = 'green'
@@ -53,7 +56,7 @@ def plot_glimpse(config, images, locations, preds, labels, step):
             ax[0].add_patch(bbox)
 
         glimpse_anim_path = config.image_dir_name + 'step{}/image{}/glimpse_anim.gif'.format(step, img_idx)
-        anim = animation.ArtistAnimation(glimpse_fig, glimpse_bboxes)
+        anim = animation.ArtistAnimation(glimpse_fig, glimpse_bboxes, interval=1000, repeat_delay=2000)
         anim.save(glimpse_anim_path, writer='imagemagick')
         plt.close(glimpse_fig)
         
