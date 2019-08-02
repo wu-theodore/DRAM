@@ -1,7 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
-import tensorflow_probability as tfp
+import tensorflow.distributions as tfp
 import time
 
 import utils
@@ -9,11 +9,11 @@ import datasets
 from NetworkLib import GlimpseNet, LocationNet, ContextNet, ClassificationNet, RecurrentNet, BaselineNet
 from visualizer import *
 
-import config
+from config import Config
 
 class DRAM(object):
     def __init__(self):
-        self.config = config.Config()
+        self.config = Config()
         self.gstep = tf.Variable(0, dtype=tf.int32, 
                                  trainable=False, name='global_step')
         self.num_epochs = self.config.num_epochs
@@ -22,14 +22,14 @@ class DRAM(object):
         self.isVisualize = self.config.isVisualize
 
 
-        self.dataset = datasets.MNIST(self.batch_size)
+        self.dataset = datasets.MNIST(self.config)
 
     def get_data(self):
         """
         Get dataset and create iterators for test and train.
         """
         with tf.name_scope('data'):
-            train_dataset, test_dataset = self.dataset.get_mnist_dataset()
+            train_dataset, test_dataset = self.dataset.get_dataset()
             iterator = tf.compat.v1.data.Iterator.from_structure(tf.compat.v1.data.get_output_types(train_dataset),
                                                                  tf.compat.v1.data.get_output_shapes(train_dataset))
             img, self.label = iterator.get_next()
@@ -107,7 +107,7 @@ class DRAM(object):
             stddev = self.config.stddev
             mean = tf.stack(self.mean_loc_array)
             sampled = tf.stack(self.loc_array)
-            gaussian = tfp.distributions.Normal(mean, stddev)
+            gaussian = tfp.compat.v1.distributions.Normal(mean, stddev)
             logll = gaussian.log_prob(sampled)
             logll = tf.reduce_sum(logll, 2)
             logll = tf.transpose(logll)
@@ -152,12 +152,14 @@ class DRAM(object):
         Construct the Tensorflow session graph.
         """
         self.get_data()
+        print("Dataset loaded.")
         self.model_init()
         self.inference()
         self.loss()
         self.optimize()
         self.eval()
         self.summaries()
+        print("Model built.")
 
     def eval(self):
         """
@@ -216,9 +218,6 @@ class DRAM(object):
         total_loss = 0
         try:
             while True:
-                # print("CONTEXT VECTOR: {}".format(self.state_init_input.eval()))
-                # print("INITIAL LOCATION: {}".format(self.mean_locations[:, 0].eval()))
-
                 fetches = [self.cross_ent, self.hybrid_loss, self.logllratio, self.baseline_mse,
                            self.accuracy, self.opt, self.summary_op, self.mean_locations,
                            self.preds, self.label, self.img]
@@ -234,8 +233,8 @@ class DRAM(object):
                     print("Total loss at step {0}: {1}".format(step, hybrid_loss))
                     print("--------------------------------------\n")
 
-                if (step + 1) % self.config.visualize_step == 0 and self.isVisualize:
-                    plot_glimpse(self.config, imgs, locations, preds, labels, step)
+                # if (step + 1) % self.config.visualize_step == 0 and self.isVisualize:
+                plot_glimpse(self.config, imgs, locations, preds, labels, step)
 
                 num_batches += 1
                 total_loss += hybrid_loss
@@ -269,9 +268,9 @@ class DRAM(object):
 
 
 if __name__ == "__main__":
-    test = DRAM()
-    test.build()
-    test.train(test.num_epochs, test.isTraining, test.isVisualize)
+    model = DRAM()
+    model.build()
+    model.train(model.num_epochs, model.isTraining, model.isVisualize)
 
             
 
