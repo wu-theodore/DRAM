@@ -12,27 +12,11 @@ class GlimpseNet(object):
         Initalize with specific dimensions of glimpse and parameters for glimpse sizing
         """
         self.layers = Layers()
+        self.config = config
 
         # Dataset inputs
         self.input_img = input_img
         self.batch_size = config.batch_size
-
-        # Glimpse extraction parameters
-        self.num_glimpses = config.num_glimpses
-        self.glimpse_size = config.glimpse_size
-        self.glimpse_scale = config.glimpse_scale
-        self.num_patches = config.num_patches
-
-        # Network parameters
-        self.first_conv_filters = config.first_conv_filters
-        self.kernel_size1 = config.kernel_size1
-        self.kernel_size2 = config.kernel_size2
-        self.kernel_size3 = config.kernel_size3
-        self.strides = config.strides
-        self.maxpool_window_size = config.maxpool_window_size
-        self.maxpool_strides = config.maxpool_strides
-
-        self.feature_vector_size = config.feature_vector_size
 
     def extract_glimpse(self, location, glimpse_size):
         """
@@ -56,47 +40,47 @@ class GlimpseNet(object):
         """
         with tf.compat.v1.variable_scope("glimpse_network", reuse=tf.compat.v1.AUTO_REUSE):
             input_glimpse = tf.Variable(np.empty([self.batch_size,
-                                        self.glimpse_size, self.glimpse_size,
+                                        self.config.glimpse_size, self.config.glimpse_size,
                                         0]), dtype=tf.float32, trainable=False, name="accum")
-            for patch in range(self.num_patches):
+            for patch in range(self.config.num_patches):
                 patch_glimpse = self.extract_glimpse(location,
-                                                    self.glimpse_size * (self.glimpse_scale ** patch))
+                                                    self.config.glimpse_size * (self.config.glimpse_scale ** patch))
 
                 patch_glimpse = tf.image.resize(patch_glimpse, 
-                                                       [self.glimpse_size, self.glimpse_size])
+                                                       [self.config.glimpse_size, self.config.glimpse_size])
 
                 input_glimpse = tf.concat([input_glimpse, patch_glimpse], -1, name="concatenate")
 
             # Calculate image feature vector.
             with tf.compat.v1.variable_scope("feature_network", reuse=tf.compat.v1.AUTO_REUSE):
                 with tf.compat.v1.variable_scope("convolutions", reuse=tf.compat.v1.AUTO_REUSE):
-                    conv1 = self.layers.conv_layer(input_glimpse, filters=self.first_conv_filters, 
-                                                   kernel_size=self.kernel_size1, strides=self.strides,
+                    conv1 = self.layers.conv_layer(input_glimpse, filters=self.config.conv1_filters, 
+                                                   kernel_size=self.config.kernel_size1, strides=self.config.strides,
                                                    padding='SAME', name='conv1')
 
-                    conv2 = self.layers.conv_layer(conv1, filters=self.first_conv_filters*2, 
-                                                   kernel_size=self.kernel_size2, strides=self.strides,
+                    pool = self.layers.max_pool(conv1, self.config.maxpool_window_size, self.config.maxpool_strides,
+                                                padding='VALID', name='maxpool')
+
+                    conv2 = self.layers.conv_layer(pool, filters=self.config.conv_2_filters, 
+                                                   kernel_size=self.config.kernel_size2, strides=self.config.strides,
                                                    padding='SAME', name='conv2')
                     
                     conv2 = tf.layers.batch_normalization(conv2, training=True)
 
-                    conv3 = self.layers.conv_layer(conv2, filters=self.first_conv_filters*4, 
-                                                   kernel_size=self.kernel_size3, strides=self.strides,
+                    conv3 = self.layers.conv_layer(conv2, filters=self.config.conv_3_filters, 
+                                                   kernel_size=self.config.kernel_size3, strides=self.config.strides,
                                                    padding='SAME', name='conv3')
 
-                    pool = self.layers.max_pool(conv3, self.maxpool_window_size, self.maxpool_strides,
-                                                padding='VALID', name='maxpool')
-
                 with tf.compat.v1.variable_scope('fully_connected', reuse=tf.compat.v1.AUTO_REUSE):
-                    flattened_dim = pool.shape[1] * pool.shape[2] * pool.shape[3]
-                    flattened = tf.reshape(pool, [-1, flattened_dim], name='flatten') 
-                    fc = self.layers.fully_connected(flattened, self.feature_vector_size, 'fc_image')
+                    flattened_dim = conv3.shape[1] * conv3.shape[2] * conv3.shape[3]
+                    flattened = tf.reshape(conv3, [-1, flattened_dim], name='flatten') 
+                    fc = self.layers.fully_connected(flattened, self.config.feature_vector_size, 'fc_image')
                     fc = tf.layers.batch_normalization(fc, trainable=True)
                     image_vector = tf.compat.v1.nn.relu(fc) 
             
             # Calculate location vector
             with tf.compat.v1.variable_scope("location_network", reuse=tf.compat.v1.AUTO_REUSE):
-                fc = self.layers.fully_connected(location, self.feature_vector_size, name='fc_location')
+                fc = self.layers.fully_connected(location, self.config.feature_vector_size, name='fc_location')
                 location_vector = tf.compat.v1.nn.relu(fc)
 
             with tf.compat.v1.variable_scope("element_multiplication"):
