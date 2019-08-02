@@ -1,7 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
-import tensorflow.distributions as tfp
 import time
 
 import utils
@@ -107,7 +106,7 @@ class DRAM(object):
             stddev = self.config.stddev
             mean = tf.stack(self.mean_loc_array)
             sampled = tf.stack(self.loc_array)
-            gaussian = tfp.compat.v1.distributions.Normal(mean, stddev)
+            gaussian = tf.compat.v1.distributions.Normal(mean, stddev)
             logll = gaussian.log_prob(sampled)
             logll = tf.reduce_sum(logll, 2)
             logll = tf.transpose(logll)
