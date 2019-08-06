@@ -7,7 +7,7 @@ class Config(object):
     num_epochs = 5
     max_global_norm = 5.0
     isTraining = True
-    isVisualize = True
+    
 
     # Dataset details:
     batch_size = 100
@@ -65,6 +65,8 @@ class Config(object):
     graphs_path = 'graphs/mnist/lr={}n_glimpse={}glimpse_size{}n_patch={}/'.format(lr, num_glimpses, glimpse_size, num_patches)
 
    # Visualizer details
+    isVisualize = True
+    isAnimate = True
     visualize_step = 550
     verbose = 5
     image_dir_name = 'images/mnist/lr={}n_glimpse={}glimpse_size{}n_patch={}/'.format(lr, num_glimpses, glimpse_size, num_patches)

@@ -19,6 +19,7 @@ class DRAM(object):
         self.batch_size = self.config.batch_size
         self.isTraining = self.config.isTraining
         self.isVisualize = self.config.isVisualize
+        self.isAnimate - self.config.isAnimate
         self.dataset = datasets.MNIST(self.config)
 
     def get_data(self):
@@ -228,7 +229,7 @@ class DRAM(object):
 
                 # Call to visualizer
                 if (step + 1) % self.config.visualize_step == 0 and self.isVisualize:
-                    plot_glimpse(self.config, imgs, locations, preds, labels, step)
+                    plot_glimpse(self.config, imgs, locations, preds, labels, step, self.isAnimate)
 
                 num_batches += 1
                 total_loss += hybrid_loss
