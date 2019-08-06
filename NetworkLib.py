@@ -4,13 +4,8 @@ from BaseLayers import Layers
 
 
 class GlimpseNet(object):
-    """
-    Receives a glimpse and location and outputs feature vector.
-    """
+
     def __init__(self, input_img, config):
-        """
-        Initalize with specific dimensions of glimpse and parameters for glimpse sizing
-        """
         self.layers = Layers()
         self.config = config
 
@@ -19,9 +14,6 @@ class GlimpseNet(object):
         self.batch_size = config.batch_size
 
     def extract_glimpse(self, location, glimpse_size):
-        """
-        Extracts a glimpse of size glimpse_size centered at location.
-        """
         location = tf.stop_gradient(location)
         with tf.name_scope("glimpse_sensor"):
             glimpse = tf.image.extract_glimpse(self.input_img, 
@@ -35,7 +27,7 @@ class GlimpseNet(object):
         When called with a location, returns the feature vector associated with 
         glimpses extracted at that location. 
         
-        If num_patches > 1, foveate input glimpse
+        If num_patches > 1, foveate input glimpse by glimpse_scale
         by extracting additional larger patches, downsampling, and concatenating.
         """
         with tf.compat.v1.variable_scope("glimpse_network", reuse=tf.compat.v1.AUTO_REUSE):
@@ -94,17 +86,16 @@ class LocationNet(object):
         self.location_stddev = config.loc_net_stddev
         self.layers = Layers()
     
-    def __call__(self, r2_vector):
+    def __call__(self, vector):
         """
-        Call returns next location and mean.
+        Call with vector to obtain next location.
 
         Next location (loc) is a 2-D tensor which represents (x, y)
 
-        Input vector r2 from RNN network passed through hidden fc layer, 
-        with weights trained through REINFORCE.
+        Use vector r2 from RNN network. 
         """
         with tf.compat.v1.variable_scope("emission_network", reuse=tf.compat.v1.AUTO_REUSE):
-            mean = tf.stop_gradient(tf.clip_by_value(self.layers.fully_connected(r2_vector, self.loc_net_dim, "loc_fc"), -1, 1))
+            mean = tf.stop_gradient(tf.clip_by_value(self.layers.fully_connected(vector, self.loc_net_dim, "loc_fc"), -1, 1))
             loc = mean + tf.random.normal((tf.shape(r2_vector)[0], 2), stddev= self.location_stddev)
             loc = tf.stop_gradient(loc)
         return loc, mean
@@ -118,10 +109,11 @@ class RecurrentNet(object):
 
     def __call__(self, inputs, cell):
         """
-        Takes list of input glimpses, which are passed through two layer RNN with
-        GRU cells. 
-
+        Takes list of length num_glimpses, with first element being initial glimpse.
+        
         Dynamically updates list with glimpse vectors from locations determined by location network.
+
+        Glimpses are passed through two layer RNN built using an LSTM cell.
         """
         # Set initial values
         loc_array = []
@@ -187,8 +179,7 @@ class ClassificationNet(object):
 
     def __call__(self, feature_vector):
         """
-        Gives logits of the final feature vector, which is used
-        to determine the appropriate class classification.
+        Outputs logits of input feature vector.
         """
         with tf.compat.v1.variable_scope("classification_network", reuse=tf.compat.v1.AUTO_REUSE):
             fc = self.layers.fully_connected(feature_vector, self.config.classification_net_fc_dim, name='class_fc1')
@@ -202,6 +193,9 @@ class BaselineNet(object):
         self.config = config
     
     def __call__(self, feature_vector):
+        """
+        Outputs baseline value of input feature vector.
+        """
         with tf.compat.v1.variable_scope("baseline", reuse=tf.compat.v1.AUTO_REUSE):
             baseline = self.layers.fully_connected(feature_vector, 1, name='baseline_fc')
             baseline = tf.compat.v1.nn.relu(baseline)
