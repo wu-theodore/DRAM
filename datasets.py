@@ -137,6 +137,8 @@ class Camelyon():
 
     def get_dataset(self):
         data_dir = self.camelyon_folder
+        if not os.path.exists(data_dir):
+            utils.make_dir(data_dir)
 
         assert os.path.exists(data_dir)
 
