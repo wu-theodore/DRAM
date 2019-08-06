@@ -3,12 +3,23 @@ import posixpath
 import utils
 import struct
 
+from PIL import Image
 import numpy as np
 import tensorflow as tf
 
+from config import Config
+
 class MNIST(object):
-    def __init__(self, batch_size):
-        self.batch_size = batch_size
+    """
+    Object to download and unzip MNIST dataset
+    to local destination. 
+
+    Call with get_dataset(), returning training
+    and testing datasets.
+    """
+    def __init__(self, config):
+        self.batch_size = config.batch_size
+        self.mnist_folder = config.data_path
 
     def download_mnist(self, path):
 
@@ -57,11 +68,12 @@ class MNIST(object):
         return (imgs, new_labels)
 
     def read_mnist(self, path, flatten=True, num_training=55000):
-        """ Download file, then read file information.
-            return tuples of numpy arrays in format 
-            (imgs, labels).
+        """ 
+        Download file, then read file information.
+        return tuples of numpy arrays in format 
+        (imgs, labels).
 
-            Split training set based on num_training, leaving rest as validation set.
+        Split training set based on num_training, leaving rest as validation set.
         """
         self.download_mnist(path)
 
@@ -79,15 +91,14 @@ class MNIST(object):
         test = self.create_data(path, 't10k', flatten)
         return (train_set, train_labels), (val_set, val_labels), test
 
-    def get_mnist_dataset(self):
-        """ Given batch_size, returns 
-            Dataset object from mnist data
-            with batch sizes of input batch_size
+    def get_dataset(self):
+        """ 
+        Given batch_size, returns 
+        Dataset object from mnist data
+        with batch sizes of input batch_size
         """
 
-        mnist_folder = 'data/mnist/'
-
-        train, val, test = self.read_mnist(mnist_folder)
+        train, val, test = self.read_mnist(self.mnist_folder)
 
         # Create tf Datasets for each.
         train_data = utils.convert_to_dataset(train, self.batch_size)
@@ -96,4 +107,45 @@ class MNIST(object):
 
         return train_data, test_data
 
+class Camelyon():
+    """
+    Object to read Camelyon16 image data from local destination. 
 
+    Reads .jpg image files, so original .tif format of WSI must be
+    converted to .jpg. Tiling of original image should be done to 
+    make computation feasible.
+
+    Call with get_dataset() to obtain appropraite train and test datasets. 
+    """
+    def __init__(self, config):
+        self.batch_size = config.batch_size
+        self.camelyon_folder = config.data_path
+        self.img_h = config.height
+        self.img_w = config.width
+
+    def _parse_function(self, filename, label):
+        image_string = tf.read_file(filename)
+        image_decoded = tf.image.decode_jpeg(image_string)
+        image_resized = tf.image.resize_images(image_decoded, [self.img_h, self.img_w])
+        return image_resized, label
+
+    def _get_label(self, filename):
+        if filename.split('_', 1)[0] == 'normal':
+            return 0
+        elif filename.split('_', 1)[0] == 'tumor':
+            return 1
+
+    def get_dataset(self):
+        data_dir = self.camelyon_folder
+
+        assert os.path.exists(data_dir)
+
+        file_list = [f for (_, _, f) in os.walk(data_dir) if f[-4:] == '.jpg']
+        label_list = [self._get_label(filename) for filename in file_list]
+
+        filenames = tf.constant(file_list)
+        labels = tf.constant(label_list)
+
+        dataset = tf.data.Dataset.from_tensor_slices((filenames, labels))
+        dataset = dataset.map(self._parse_function)
+        return dataset
