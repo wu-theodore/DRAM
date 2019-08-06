@@ -19,8 +19,6 @@ class DRAM(object):
         self.batch_size = self.config.batch_size
         self.isTraining = self.config.isTraining
         self.isVisualize = self.config.isVisualize
-
-
         self.dataset = datasets.MNIST(self.config)
 
     def get_data(self):
@@ -38,9 +36,9 @@ class DRAM(object):
 
     def model_init(self):
         """
-        Creates instances of each network from NetworkLib.py
+        Creates instances of each network component in DRAM.
 
-        Defines LSTM cells for use in RNN
+        Defines LSTM cell for use in RNN
         """
         # Initiate Networks
         self.gn = GlimpseNet(self.img, self.config)
@@ -59,19 +57,21 @@ class DRAM(object):
 
     def inference(self):
         """
-        1)  Creates initial state through context network.
-        2)  Extracts first glimpse through glimpse network.
-        3)  First glimpse is passed through RNN network, 
+        Data flow process:
+        1)  Extracts first glimpse through glimpse network.
+        2)  First glimpse is passed through RNN network, 
             which integrates RNN components, location/emission 
             network, and glimpse network.
-
-        4)  Final output is passed into classification network,
+        3)  Final output is passed into classification network,
             where prediction is obtained.
+
+        Also maintains location tensors for each glimpse to be
+        used by visualizer.
         """
 
         # self.state_init_input = self.context_net(self.img)
-
         # self.init_location, _ = self.ln(self.state_init_input) # gets initial location using context vector
+
         self.init_location = tf.zeros([self.batch_size, 2], dtype=tf.float32)
         self.loc_array = [self.init_location]
         self.mean_loc_array = [self.init_location]
@@ -123,7 +123,7 @@ class DRAM(object):
             correct_preds = tf.equal(tf.argmax(self.preds, 1), tf.argmax(self.label, 1))
             self.rewards = tf.cast(correct_preds, tf.float32)
 
-            # Must reshape to match baseline
+            # Reshape to match baseline
             self.rewards = tf.expand_dims(self.rewards, 1) # shape [batch_size, 1]
             self.rewards = tf.tile(self.rewards, [1, self.config.num_glimpses])
 
@@ -138,20 +138,16 @@ class DRAM(object):
             self.hybrid_loss = -self.logllratio * self.config.reward_weight + self.cross_ent + self.baseline_mse
 
     def optimize(self):
-        """
-        Optimize action network using backpropagation by minimizing loss.
-        """
-        optimizer = tf.compat.v1.train.AdamOptimizer(self.config.lr)
-        gradients, variables = zip(*optimizer.compute_gradients(self.hybrid_loss))
-        gradients, _ = tf.clip_by_global_norm(gradients, self.config.max_global_norm)
-        self.opt = optimizer.apply_gradients(zip(gradients, variables), global_step=self.gstep)
+        with tf.name_scope('optimize'):
+            optimizer = tf.compat.v1.train.AdamOptimizer(self.config.lr)
+            gradients, variables = zip(*optimizer.compute_gradients(self.hybrid_loss))
+            gradients, _ = tf.clip_by_global_norm(gradients, self.config.max_global_norm)
+            self.opt = optimizer.apply_gradients(zip(gradients, variables), global_step=self.gstep)
 
     def build(self):
-        """
-        Construct the Tensorflow session graph.
-        """
         self.get_data()
         print("Dataset loaded.")
+
         self.model_init()
         self.inference()
         self.loss()
@@ -170,9 +166,6 @@ class DRAM(object):
             self.accuracy = tf.reduce_mean(tf.cast(correct_preds, tf.float32))
     
     def summaries(self):
-        """
-        Create summaries to write to tensorboard.
-        """
         with tf.name_scope("summaries"):
             tf.compat.v1.summary.scalar('cross_entropy', self.cross_ent)
             tf.compat.v1.summary.scalar('baseline_mse', self.baseline_mse)
@@ -223,6 +216,7 @@ class DRAM(object):
                 cross_ent, hybrid_loss, logllratio, base_mse, accuracy, _, summary, locations, preds, labels, imgs = sess.run(fetches)
                 writer.add_summary(summary, global_step=step)
 
+                # Report summary data
                 if (step + 1) % self.config.report_step == 0:
                     print("----------------LOSSES----------------")
                     print("Accuracy at step {0}: {1}".format(step, accuracy))
@@ -232,8 +226,9 @@ class DRAM(object):
                     print("Total loss at step {0}: {1}".format(step, hybrid_loss))
                     print("--------------------------------------\n")
 
-                # if (step + 1) % self.config.visualize_step == 0 and self.isVisualize:
-                plot_glimpse(self.config, imgs, locations, preds, labels, step)
+                # Call to visualizer
+                if (step + 1) % self.config.visualize_step == 0 and self.isVisualize:
+                    plot_glimpse(self.config, imgs, locations, preds, labels, step)
 
                 num_batches += 1
                 total_loss += hybrid_loss
@@ -258,8 +253,10 @@ class DRAM(object):
                 writer.add_summary(summary, global_step=step)
                 total_acc += acc
                 num_batches += 1
+                
         except tf.errors.OutOfRangeError:
             pass
+
         print("-----------------EVAL----------------")
         print("Average accuracy: {}".format(total_acc / num_batches))
         print("Time taken: {}".format(time.time() - start))
