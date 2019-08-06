@@ -4,7 +4,7 @@ class Config(object):
     """
     # Training parameters
     lr = 0.01
-    num_epochs = 20
+    num_epochs = 5
     max_global_norm = 5.0
     isTraining = True
     isVisualize = True
@@ -14,21 +14,25 @@ class Config(object):
     height = 28
     width = 28
     color_channels = 1
-    num_classes = 10
-    object_labels = ('0', '1', '2', '3', '4', '5',
-                     '6', '7', '8', '9')
+    object_labels = ('0', '1', '2', '3', '4',
+                     '5', '6', '7', '8', '9')
+    num_classes = len(object_labels)
 
-    # Glimpse network and Context network parameters
-    num_glimpses = 6
+    # Glimpse extraction parameters
+    num_glimpses = 5
     glimpse_size = 8
     glimpse_scale = 2
-    num_patches = 1
-    first_conv_filters = 8
-    kernel_size1 = 5
+    num_patches = 2
+
+    # Glimpse network parameters
+    conv1_filters = 16
+    conv_2_filters = 32
+    conv_3_filters = 64
+    kernel_size1 = 7
     kernel_size2 = 3
     kernel_size3 = 3
-    strides = 1
-    maxpool_window_size = 2
+    strides = 2
+    maxpool_window_size = 3
     maxpool_strides = 2
     feature_vector_size = 64
 
@@ -40,7 +44,7 @@ class Config(object):
     loc_net_stddev = 0.001
 
     # Classification network parameters
-    classification_net_fc_dim = feature_vector_size / 4
+    classification_net_fc_dim = 32
 
     # Context network parameters
     coarse_size = 64
@@ -51,6 +55,9 @@ class Config(object):
     # Loss parameters
     reward_weight = 5
 
+    # Dataset details
+    data_path = 'data/mnist/'
+
     # Saver/Writer details
     checkpoint_path = 'checkpoints/mnist/lr={}n_glimpse={}glimpse_size{}n_patch={}/'.format(lr, num_glimpses, glimpse_size, num_patches)
     checkpoint_name = 'DRAM-mnist'
@@ -59,5 +66,5 @@ class Config(object):
 
    # Visualizer details
     visualize_step = 550
-    verbose = 20
+    verbose = 5
     image_dir_name = 'images/mnist/lr={}n_glimpse={}glimpse_size{}n_patch={}/'.format(lr, num_glimpses, glimpse_size, num_patches)
