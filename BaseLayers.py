@@ -1,13 +1,14 @@
 import tensorflow as tf
 
 class Layers(object):
+    """
+    A class containing functionality to customize 
+    and create standard convolutional network layers.
+    """
     def __init__(self):
         pass
 
     def conv_layer(self, inputs, filters, kernel_size, strides, padding='SAME', name='conv'):
-        """
-        Basic convolutional layer.
-        """
         input_channels = inputs.shape[-1]
         with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
             kernel = tf.compat.v1.get_variable('kernel', 
@@ -25,9 +26,6 @@ class Layers(object):
             return out
 
     def max_pool(self, inputs, ksize, strides, padding='VALID', name='maxpool'):
-        """
-        A basic max pooling layer.
-        """
         with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
             pool = tf.nn.max_pool2d(inputs, ksize=[1, ksize, ksize, 1],
                                   strides=[1, strides, strides, 1], 
@@ -35,9 +33,6 @@ class Layers(object):
             return pool
 
     def fully_connected(self, inputs, out_dim, name):
-        """
-        Basic fully connected layer.
-        """
         in_dim = inputs.shape[-1]
         with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
             w = tf.compat.v1.get_variable("weights", shape=[in_dim, out_dim],
