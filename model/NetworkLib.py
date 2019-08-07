@@ -199,4 +199,8 @@ class BaselineNet(object):
         with tf.compat.v1.variable_scope("baseline", reuse=tf.compat.v1.AUTO_REUSE):
             baseline = self.layers.fully_connected(feature_vector, 1, name='baseline_fc')
             baseline = tf.compat.v1.nn.relu(baseline)
+<<<<<<< HEAD
         return baseline
+=======
+        return baseline
+>>>>>>> f94d039132d7a9fc66d50498113bf536aa222693
