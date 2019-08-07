@@ -19,11 +19,7 @@ class DRAM(object):
         self.batch_size = self.config.batch_size
         self.isTraining = self.config.isTraining
         self.isVisualize = self.config.isVisualize
-<<<<<<< HEAD
         self.isAnimate = self.config.isAnimate
-=======
-        self.isAnimate - self.config.isAnimate
->>>>>>> f94d039132d7a9fc66d50498113bf536aa222693
         self.dataset = datasets.MNIST(self.config)
 
     def get_data(self):
