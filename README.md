@@ -1,5 +1,5 @@
 # Deep Recurrent Attention Model (DRAM)
-This repository contains code for a Deep Recurrent Attention Model developed during my Summer 2019 internship at the Beijing Institute of Collaborative Innovation (BICI). As part of my research, I reproduced results from the original papers (Ba et al, Mnih et al) on the MNIST dataset and used Whole Slide Images (WSIs) from the Camelyon16 dataset to test the usability of DRAM on giga-pixel level images.
+This repository contains code for a Deep Recurrent Attention Model. I reproduced results from the original papers (Ba et al, Mnih et al) on the MNIST dataset and attempted to apply the model to Whole Slide Images (WSIs) from the Camelyon16 dataset to test the usability of DRAM on giga-pixel level images.
 
 Implementation using TensorFlow 1.14.
 
